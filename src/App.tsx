@@ -306,7 +306,7 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
   const [transform, setTransform] = useState({ x: 0, y: 0, z: 1 });
   const containerRef = React.useRef<HTMLDivElement>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
-  const [draftState, setDraftState] = useState<{ startX: number, startY: number, pointerX: number, pointerY: number, sequence?: {x: number, y: number}[], wallIds?: string[] } | null>(null);
+  const [draftState, setDraftState] = useState<{ startX: number, startY: number, pointerX: number, pointerY: number, sequence?: {x: number, y: number}[], wallIds?: string[], inferences?: {x: number, y: number}[] } | null>(null);
   const [pointerPos, setPointerPos] = useState<{x: number, y: number} | null>(null);
 
   React.useEffect(() => {
@@ -381,8 +381,9 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
        items.forEach((item: DesignItem) => {
            if (item.assetId === 'wall-segment') {
                const angle = item.rotation * Math.PI / 180;
-               const dx = (item.width / 2) * Math.cos(angle);
-               const dy = (item.width / 2) * Math.sin(angle);
+               const trueLength = item.width - item.height;
+               const dx = (trueLength / 2) * Math.cos(angle);
+               const dy = (trueLength / 2) * Math.sin(angle);
                
                const p1 = { x: item.x - dx, y: item.y - dy };
                const p2 = { x: item.x + dx, y: item.y + dy };
@@ -473,9 +474,8 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
                if (isClosed) {
                  const allWallIds = [...(draftState.wallIds || [])];
                  if (newWallId) allWallIds.push(newWallId);
-                 allWallIds.forEach(id => onDeleteItem(id));
-
-                 // Close the room and automatically create floor
+                 
+                 // Close the room and automatically create floor without deleting the individual walls
                  const newSequence = [...sq, {x: finalX, y: finalY}];
                  
                  const minX = Math.min(...newSequence.map(p => p.x));
@@ -564,10 +564,11 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
         name: asset.name,
         x: cx,
         y: cy,
-        width: length,
+        width: length + asset.defaultHeight,
         height: asset.defaultHeight,
         rotation: rot,
-        color: asset.defaultColor
+        color: asset.defaultColor,
+        jointType: 'squared'
       });
       return id;
     } else if (activeTool === 'draw-room') {
@@ -629,6 +630,7 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
         if (draftState && (activeTool === 'draw-wall' || activeTool === 'draw-room')) {
           let px = currentCoord.x;
           let py = currentCoord.y;
+          let currentInferences: {x: number, y: number}[] = [];
 
           if (activeTool === 'draw-wall') {
               const gridSize = 10;
@@ -648,6 +650,55 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
                  else { py = draftState.startY; }
               }
 
+              // Gather all global points from existing walls
+              const globalPoints: {x: number, y: number}[] = [];
+              items.forEach((item: DesignItem) => {
+                  if (item.assetId === 'wall-segment') {
+                      const rad = item.rotation * (Math.PI / 180);
+                      const halfW = (item.width - item.height) / 2;
+                      const dX = halfW * Math.cos(rad);
+                      const dY = halfW * Math.sin(rad);
+                      globalPoints.push({ x: item.x - dX, y: item.y - dY });
+                      globalPoints.push({ x: item.x + dX, y: item.y + dY });
+                  }
+              });
+
+              if (draftState.sequence) {
+                  draftState.sequence.forEach(pt => {
+                      if (pt.x !== draftState.startX || pt.y !== draftState.startY) {
+                          globalPoints.push(pt);
+                      }
+                  });
+              }
+
+              // Evaluate Snapping against all points
+              for (const pt of globalPoints) {
+                  let snapped = false;
+                  // Snap to endpoint if it's very close (both x and y)
+                  if (Math.abs(px - pt.x) <= 15 && Math.abs(py - pt.y) <= 15) {
+                      px = pt.x;
+                      py = pt.y;
+                      snapped = true;
+                  } else {
+                      // Alignment Snapping (Inference on X or Y axis)
+                      if (Math.abs(px - pt.x) <= 15) {
+                          px = pt.x;
+                          snapped = true;
+                      }
+                      if (Math.abs(py - pt.y) <= 15) {
+                          py = pt.y;
+                          snapped = true;
+                      }
+                  }
+                  
+                  if (snapped) {
+                      // Avoid duplicate inferences
+                      if (!currentInferences.some(inf => Math.abs(inf.x - pt.x) < 1 && Math.abs(inf.y - pt.y) < 1)) {
+                          currentInferences.push(pt);
+                      }
+                  }
+              }
+
               if (draftState.sequence && draftState.sequence.length >= 3) {
                   const startPoint = draftState.sequence[0];
                   const distToStart = Math.sqrt((px - startPoint.x)**2 + (py - startPoint.y)**2);
@@ -658,7 +709,7 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
               }
           }
           
-          setDraftState(prev => prev ? { ...prev, pointerX: px, pointerY: py } : null);
+          setDraftState(prev => prev ? { ...prev, pointerX: px, pointerY: py, inferences: currentInferences || [] } : null);
         }
       }}
       onContextMenu={(e) => {
@@ -693,40 +744,160 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
           ))}
 
           {/* Draft Item Preview */}
-          {draftState && activeTool === 'draw-wall' && (
-             <div 
-               style={{
-                 position: 'absolute',
-                 left: (draftState.startX + draftState.pointerX) / 2,
-                 top: (draftState.startY + draftState.pointerY) / 2,
-                 width: Math.sqrt(Math.pow(draftState.pointerX - draftState.startX, 2) + Math.pow(draftState.pointerY - draftState.startY, 2)),
-                 height: 15,
-                 transform: `translate(-50%, -50%) rotate(${Math.atan2(draftState.pointerY - draftState.startY, draftState.pointerX - draftState.startX) * (180 / Math.PI)}deg)`,
-                 backgroundColor: (() => {
-                     const sq = draftState.sequence || [];
-                     if (sq.length >= 3) {
-                         const distToStart = Math.sqrt((draftState.pointerX - sq[0].x)**2 + (draftState.pointerY - sq[0].y)**2);
-                         if (distToStart < 20) return '#10b981';
-                     }
-                     return '#3b82f6';
-                 })(),
-                 opacity: 0.6,
-                 pointerEvents: 'none',
-                 display: 'flex',
-                 alignItems: 'center',
-                 justifyContent: 'center',
-                 borderRadius: 0
-               }}
-             >
-               <span style={{ 
-                 transform: `rotate(${-Math.atan2(draftState.pointerY - draftState.startY, draftState.pointerX - draftState.startX) * (180 / Math.PI)}deg)`,
-                 background: '#ffffff', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#1e293b', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                 position: 'absolute', top: '-18px'
-               }}>
-                 {Math.round(Math.sqrt(Math.pow(draftState.pointerX - draftState.startX, 2) + Math.pow(draftState.pointerY - draftState.startY, 2)))} cm
-               </span>
-             </div>
-          )}
+          {draftState && activeTool === 'draw-wall' && (() => {
+             const dist = Math.sqrt(Math.pow(draftState.pointerX - draftState.startX, 2) + Math.pow(draftState.pointerY - draftState.startY, 2));
+             const angle = Math.atan2(draftState.pointerY - draftState.startY, draftState.pointerX - draftState.startX) * (180 / Math.PI);
+             const sq = draftState.sequence || [];
+             let isClosing = false;
+             let isPerpendicular = false;
+
+             if (sq.length >= 3) {
+                 const distToStart = Math.sqrt((draftState.pointerX - sq[0].x)**2 + (draftState.pointerY - sq[0].y)**2);
+                 if (distToStart < 30) isClosing = true;
+             }
+
+             // Estimate if it's perpendicular snapped (angle is multiple of 90)
+             const normalizedAngle = (angle + 360) % 360;
+             if (normalizedAngle % 90 === 0 && dist > 0) isPerpendicular = true;
+
+             const hasInferences = draftState.inferences && draftState.inferences.length > 0;
+
+             return (
+               <>
+                 <div style={{
+                    position: 'absolute',
+                    left: draftState.startX,
+                    top: draftState.startY,
+                    width: dist,
+                    height: 0,
+                    transformOrigin: '0 0',
+                    transform: `rotate(${angle}deg)`,
+                    pointerEvents: 'none',
+                    zIndex: 50
+                 }}>
+                   {/* Main Wall Rectangle */}
+                   <div style={{
+                      position: 'absolute',
+                      top: -7.5,
+                      left: -7.5,
+                      width: dist + 15,
+                      height: 15,
+                      backgroundColor: 'rgba(96, 165, 250, 0.4)', // bg-blue-400 with opacity
+                      border: '1.5px solid #2563eb', // border-blue-600
+                      borderRadius: 7.5
+                   }} />
+
+                   {/* Start Point */}
+                   <div style={{
+                      position: 'absolute',
+                      top: -4,
+                      left: -4,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: '#ffffff',
+                      border: '1.5px solid #1e293b'
+                   }} />
+
+                   {/* End Point */}
+                   <div style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -4,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: isClosing || hasInferences || isPerpendicular ? '#a7f3d0' : '#ffffff',
+                      border: '1.5px solid #1e293b'
+                   }} />
+
+                   {/* Dimension Line & Label */}
+                   {dist > 30 && (
+                     <div style={{ position: 'absolute', top: 30, left: 0, width: '100%', height: 20 }}>
+                       {/* Horizontal line */}
+                       <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, backgroundColor: '#52525b' }} />
+                       {/* Left tick */}
+                       <div style={{ position: 'absolute', top: '50%', left: 0, width: 1, height: 12, marginTop: -6, backgroundColor: '#52525b' }} />
+                       {/* Right tick */}
+                       <div style={{ position: 'absolute', top: '50%', right: 0, width: 1, height: 12, marginTop: -6, backgroundColor: '#52525b' }} />
+                       
+                       <div style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          backgroundColor: '#60a5fa',
+                          border: '1px solid #3b82f6',
+                          color: '#ffffff',
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          lineHeight: 1,
+                          whiteSpace: 'nowrap'
+                       }}>
+                          {formatDimension(dist)}
+                       </div>
+
+                       {/* Tooltip for snapping */}
+                       {(hasInferences || isClosing || isPerpendicular) && (
+                          <div style={{
+                             position: 'absolute',
+                             top: '50%',
+                             left: '100%',
+                             marginLeft: 15,
+                             transform: `translate(0, -50%) rotate(${-angle}deg)`,
+                             backgroundColor: '#52525b',
+                             color: '#ffffff',
+                             padding: '4px 8px',
+                             borderRadius: 4,
+                             fontSize: 12,
+                             fontWeight: 400,
+                             whiteSpace: 'nowrap'
+                          }}>
+                             {isClosing ? 'Closure' : hasInferences ? 'Aligned' : 'Perpendicular'}
+                          </div>
+                       )}
+                     </div>
+                   )}
+                 </div>
+                 
+                 {/* Guide Lines if Snapped or Perpendicular */}
+                 <svg style={{ 
+                     position: 'absolute', 
+                     top: 0, 
+                     left: 0, 
+                     width: 1, 
+                     height: 1, 
+                     pointerEvents: 'none', 
+                     overflow: 'visible',
+                     zIndex: 49 
+                 }}>
+                     {(draftState.inferences || []).map((inf, i) => (
+                         <line 
+                             key={`inf-${i}`}
+                             x1={draftState.pointerX} 
+                             y1={draftState.pointerY} 
+                             x2={inf.x} 
+                             y2={inf.y} 
+                             stroke="#4ade80" 
+                             strokeWidth="1" 
+                         />
+                     ))}
+                     {isPerpendicular && (
+                         <line 
+                             x1={normalizedAngle % 180 === 0 ? draftState.pointerX : draftState.pointerX - 2000} 
+                             y1={normalizedAngle % 180 === 0 ? draftState.pointerY - 2000 : draftState.pointerY} 
+                             x2={normalizedAngle % 180 === 0 ? draftState.pointerX : draftState.pointerX + 2000} 
+                             y2={normalizedAngle % 180 === 0 ? draftState.pointerY + 2000 : draftState.pointerY} 
+                             stroke="#4ade80" 
+                             strokeWidth="1.5" 
+                         />
+                     )}
+                 </svg>
+               </>
+             )
+          })()}
 
           {draftState && activeTool === 'draw-room' && (
              <div 
@@ -818,19 +989,23 @@ function Canvas2D({ items, selectedItemId, onSelectItem, onUpdateItem, activeToo
   );
 }
 
+const formatDimension = (cm: number) => {
+  const totalInches = cm / 2.54;
+  const feet = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  // Handle edge case where inches is 12
+  if (inches === 12) {
+      return `${feet + 1}' 0"`;
+  }
+  return `${feet}' ${inches}"`;
+};
+
 function DraggableItem({ item, transform, isSelected, canSelect, onSelect, onUpdate }: { item: DesignItem, transform: { x: number, y: number, z: number }, isSelected: boolean, canSelect: boolean, onSelect: () => void, onUpdate: (updates: Partial<DesignItem>) => void }) {
   const [isRoom, setIsRoom] = useState(item.assetId === 'room-square' || item.assetId === 'floor-surface');
 
   React.useEffect(() => {
     setIsRoom(item.assetId === 'room-square' || item.assetId === 'floor-surface');
   }, [item.assetId]);
-
-  const formatDimension = (cm: number) => {
-    const totalInches = cm / 2.54;
-    const feet = Math.floor(totalInches / 12);
-    const inches = Math.round(totalInches % 12);
-    return `${feet}'-${inches}"`;
-  };
 
   const calculateArea = () => {
     if (item.points) {
@@ -891,15 +1066,15 @@ function DraggableItem({ item, transform, isSelected, canSelect, onSelect, onUpd
         height: item.height,
         transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
         backgroundColor: (isRoom && !item.points) ? 'transparent' : item.color,
-        borderRadius: item.assetId === 'wall-segment' ? 0 : undefined,
+        borderRadius: item.assetId === 'wall-segment' ? (item.jointType === 'rounded' ? item.height / 2 : 0) : undefined,
       }}
       className={cn(
         canSelect ? "cursor-grab active:cursor-grabbing hover:ring-1 hover:ring-zinc-400/50 hover:ring-offset-1 hover:ring-offset-zinc-950" : "pointer-events-none",
         "transition-[shadow,border] duration-150 relative",
-        isSelected && !isRoom && !item.points ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-zinc-950 z-20 shadow-2xl opacity-95" : "z-10 shadow-sm opacity-90",
-        isRoom && !item.points && "border-[15px] border-zinc-400 bg-wood-pattern shadow-md",
+        isSelected && !isRoom && !item.points ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-zinc-950 z-30 shadow-2xl" : "shadow-sm",
+        isRoom && !item.points && "border-[15px] border-zinc-400 bg-wood-pattern shadow-md z-0",
         isRoom && isSelected && !item.points && "border-zinc-500 shadow-xl",
-        item.assetId === 'floor-surface' && (isSelected ? "z-10 drop-shadow-md opacity-100" : "z-0 drop-shadow-sm opacity-100")
+        item.assetId === 'floor-surface' ? "z-0 drop-shadow-sm" : (item.assetId === 'wall-segment' ? "z-10" : "z-20")
       )}
     >
       {item.points && isRoom && (
@@ -914,8 +1089,8 @@ function DraggableItem({ item, transform, isSelected, canSelect, onSelect, onUpd
            <polygon 
               points={item.points.map(p => `${p.x + item.width/2},${p.y + item.height/2}`).join(' ')} 
               fill={`url(#wood-${item.id})`}
-              stroke={isSelected ? "#71717a" : "#a1a1aa"}
-              strokeWidth="15"
+              stroke={isSelected ? "#60a5fa" : "transparent"}
+              strokeWidth="2"
               strokeLinejoin="round"
            />
         </svg>
@@ -935,7 +1110,7 @@ function DraggableItem({ item, transform, isSelected, canSelect, onSelect, onUpd
       {item.assetId === 'wall-segment' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
            <div className="bg-white/80 px-1 py-0.5 rounded text-[9px] font-medium tracking-tight text-gray-800 shadow-sm border border-gray-200 whitespace-nowrap">
-             {formatDimension(item.width)}
+             {formatDimension(item.width - item.height)}
            </div>
         </div>
       )}
@@ -1037,6 +1212,19 @@ function PropertiesPanel({ item, onUpdate, onDelete }: any) {
           <div className="col-span-2">
             <PropInput label="Rotation" value={item.rotation} onChange={(v) => handleChange('rotation', Number(v) || 0)} unit="°" />
           </div>
+          {item.assetId === 'wall-segment' && (
+            <div className="col-span-2 flex flex-col gap-1.5 focus-within:ring-1 focus-within:ring-blue-500 rounded-md p-1 transition-all">
+              <label className="text-[10px] text-gray-500 font-semibold">Joint Type</label>
+              <select 
+                value={item.jointType || 'squared'}
+                onChange={(e) => handleChange('jointType', e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded p-1.5 text-xs text-gray-800 outline-none"
+              >
+                <option value="rounded">Rounded</option>
+                <option value="squared">Squared</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

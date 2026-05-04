@@ -21,4 +21,5 @@ export interface DesignItem {
   rotation: number;
   color: string;
   points?: {x: number, y: number}[];
+  jointType?: 'rounded' | 'squared';
 }
