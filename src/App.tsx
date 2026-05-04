@@ -6,6 +6,10 @@ import { cn } from './lib/utils';
 import { DownloadCloud, Layers, Box, Settings2, ZoomIn, ZoomOut, Move, Hand, MousePointer2, Focus, Pencil, SquareSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import KonvaCanvas2D from './components/KonvaCanvas2D';
+
+import Canvas3D from './components/Canvas3D';
+
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [items, setItems] = useState<DesignItem[]>(() => {
@@ -111,7 +115,7 @@ export default function App() {
       {/* Background Canvas */}
       <div className="absolute inset-0 z-0 flex flex-col">
           {viewMode === '2D' ? (
-            <Canvas2D 
+            <KonvaCanvas2D 
               items={items} 
               selectedItemId={selectedItemId} 
               onSelectItem={setSelectedItemId} 
@@ -123,7 +127,7 @@ export default function App() {
               placeAssetId={placeAssetId}
             />
           ) : (
-            <Canvas3DPlaceholder />
+            <Canvas3D items={items} selectedItemId={selectedItemId} onSelectItem={setSelectedItemId} />
           )}
       </div>
 
@@ -1162,29 +1166,7 @@ function DraggableItem({ item, transform, isSelected, canSelect, onSelect, onUpd
   );
 }
 
-function Canvas3DPlaceholder() {
-  return (
-    <div className="absolute inset-0 bg-[#f8f9fa] flex flex-col items-center justify-center">
-      <div className="w-72 h-72 border border-gray-200 rounded-3xl bg-white flex items-center justify-center shadow-xl relative overflow-hidden group">
-        <div className="absolute inset-0 bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-        <Box className="w-20 h-20 text-gray-300 group-hover:text-blue-500 group-hover:scale-110 transition-all duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)]" />
-        
-        <div className="absolute inset-0 opacity-[0.05] pointer-events-none group-hover:opacity-[0.15] transition-opacity duration-700">
-          <svg className="w-full h-full text-blue-600" viewBox="0 0 100 100" preserveAspectRatio="none">
-            <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeWidth="0.5" />
-            <line x1="50" y1="0" x2="50" y2="100" stroke="currentColor" strokeWidth="0.5" />
-            <line x1="0" y1="0" x2="100" y2="100" stroke="currentColor" strokeWidth="0.5" />
-            <line x1="100" y1="0" x2="0" y2="100" stroke="currentColor" strokeWidth="0.5" />
-          </svg>
-        </div>
-      </div>
-      <h3 className="mt-8 text-2xl font-semibold tracking-tight text-gray-900">3D Visualizer Model</h3>
-      <p className="mt-3 text-sm text-gray-500 max-w-sm text-center leading-relaxed">
-        The prototype focuses on interactive 2D floor plans. In the production app, this view automatically generates a Three.js / React-Three-Fiber interactive 3D environment based on your 2D geometry constraints.
-      </p>
-    </div>
-  );
-}
+
 
 function PropertiesPanel({ item, onUpdate, onDelete }: any) {
   const handleChange = (field: keyof DesignItem, value: string | number) => {
