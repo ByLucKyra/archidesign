@@ -14,6 +14,7 @@ export interface DesignItem {
   id: string;
   assetId: string;
   name: string;
+  category?: string;
   x: number;
   y: number;
   width: number;

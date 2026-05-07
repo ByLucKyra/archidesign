@@ -7,8 +7,8 @@ import { DownloadCloud, Layers, Box, Settings2, ZoomIn, ZoomOut, Move, Hand, Mou
 import { motion, AnimatePresence } from 'motion/react';
 
 import KonvaCanvas2D from './components/KonvaCanvas2D';
-
 import Canvas3D from './components/Canvas3D';
+import AIGeneratorModal from './components/AIGeneratorModal';
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
@@ -25,6 +25,7 @@ export default function App() {
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<'select' | 'draw-wall' | 'draw-room' | 'place-item'>('select');
   const [placeAssetId, setPlaceAssetId] = useState<string | null>(null);
 
@@ -136,6 +137,7 @@ export default function App() {
           viewMode={viewMode} 
           setViewMode={setViewMode} 
           onExport={() => setIsExportModalOpen(true)} 
+          onGenerate={() => setIsAiModalOpen(true)}
         />
       </AutoHideWrapper>
 
@@ -255,11 +257,12 @@ export default function App() {
         onExport={() => setIsExportModalOpen(true)}
       />
       <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} />
+      <AIGeneratorModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} onApply={(newItems) => { handleSetItems(prev => [...prev, ...newItems]); setIsAiModalOpen(false); }} />
     </div>
   );
 }
 
-function TopBar({ viewMode, setViewMode, onExport }: { viewMode: ViewMode, setViewMode: (m: ViewMode) => void, onExport: () => void }) {
+function TopBar({ viewMode, setViewMode, onExport, onGenerate }: { viewMode: ViewMode, setViewMode: (m: ViewMode) => void, onExport: () => void, onGenerate: () => void }) {
   return (
     <div className="w-[100vw] h-14 border-b border-gray-200 bg-white flex items-center justify-between px-4 z-20 shadow-sm relative">
       <div className="flex items-center gap-3">
@@ -288,6 +291,9 @@ function TopBar({ viewMode, setViewMode, onExport }: { viewMode: ViewMode, setVi
       </div>
 
       <div className="flex items-center gap-4">
+        <button className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-md shadow-sm font-medium text-sm hover:shadow transition-shadow" onClick={onGenerate}>
+          <Icons.Sparkles className="w-4 h-4" /> AI Generate
+        </button>
         <button className="text-gray-600 hover:text-gray-900" title="Templates" onClick={() => alert("Templates library coming soon!")}><Icons.LayoutTemplate className="w-5 h-5"/></button>
         <button className="text-gray-600 hover:text-gray-900" title="Settings" onClick={() => alert("Project settings coming soon!")}><Icons.Settings className="w-5 h-5"/></button>
         <div className="relative">
