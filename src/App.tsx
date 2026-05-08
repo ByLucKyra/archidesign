@@ -12,6 +12,20 @@ import AIGeneratorModal from './components/AIGeneratorModal';
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  };
+
   const [items, setItems] = useState<DesignItem[]>(() => {
     try {
       const saved = localStorage.getItem('homestyler_items');
@@ -128,7 +142,7 @@ export default function App() {
               placeAssetId={placeAssetId}
             />
           ) : (
-            <Canvas3D items={items} selectedItemId={selectedItemId} onSelectItem={setSelectedItemId} />
+            <Canvas3D items={items} selectedItemId={selectedItemId} onSelectItem={setSelectedItemId} onUpdateItem={handleUpdateItem} />
           )}
       </div>
 
@@ -138,26 +152,28 @@ export default function App() {
           setViewMode={setViewMode} 
           onExport={() => setIsExportModalOpen(true)} 
           onGenerate={() => setIsAiModalOpen(true)}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
         />
       </AutoHideWrapper>
 
       <AutoHideWrapper side="left">
-        <div className="flex h-screen pt-14 shadow-[4px_0_24px_rgba(0,0,0,0.05)] bg-white border-r border-gray-200">
+        <div className="flex h-screen pt-14 shadow-[4px_0_24px_rgba(0,0,0,0.05)] bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-800">
           {/* Thin Navigation Column */}
-          <div className="w-[72px] flex flex-col items-center py-4 border-r border-gray-100 gap-6">
-             <button className="flex flex-col items-center gap-1.5 text-gray-900 group">
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
-                  <Box className="w-5 h-5 text-gray-900" />
+          <div className="w-[72px] flex flex-col items-center py-4 border-r border-gray-100 dark:border-zinc-800 gap-6">
+             <button className="flex flex-col items-center gap-1.5 text-gray-900 dark:text-gray-100 group">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center group-hover:bg-gray-200 dark:group-hover:bg-zinc-700 transition-colors">
+                  <Box className="w-5 h-5 text-gray-900 dark:text-gray-100" />
                 </div>
-                <span className="text-[10px] font-semibold">Build</span>
+                <span className="text-[10px] font-semibold text-gray-900 dark:text-gray-200">Build</span>
              </button>
-             <button className="flex flex-col items-center gap-1.5 text-gray-500 hover:text-gray-900 group">
+             <button className="flex flex-col items-center gap-1.5 text-gray-500 dark:text-zinc-500 hover:text-gray-900 dark:hover:text-zinc-300 group">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors">
                   <Layers className="w-5 h-5" />
                 </div>
                 <span className="text-[10px] font-medium">Decorate</span>
              </button>
-             <button className="flex flex-col items-center gap-1.5 text-gray-500 hover:text-gray-900 group">
+             <button className="flex flex-col items-center gap-1.5 text-gray-500 dark:text-zinc-500 hover:text-gray-900 dark:hover:text-zinc-300 group">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors">
                   <Settings2 className="w-5 h-5" />
                 </div>
@@ -167,13 +183,13 @@ export default function App() {
 
           {/* Library Column */}
           <div className="w-[280px] flex flex-col pt-2">
-            <div className="p-5 border-b border-gray-100 pb-4">
-              <h2 className="text-lg font-bold tracking-tight text-gray-900">Create Room</h2>
+            <div className="p-5 border-b border-gray-100 dark:border-zinc-800 pb-4">
+              <h2 className="text-lg font-bold tracking-tight text-gray-900 dark:text-gray-100">Create Room</h2>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-8">
               {['Structure', 'Doors & Windows', 'Furniture', 'Plumbing'].map((category) => (
                 <div key={category}>
-                  <h3 className="text-sm font-semibold text-gray-800 mb-4">{category}</h3>
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-zinc-300 mb-4">{category}</h3>
                   <div className="grid grid-cols-3 gap-3">
                     {ASSET_LIBRARY.filter(a => a.category === category).map((asset) => {
                       const IconComponent = (Icons as any)[asset.iconName] || Box;
@@ -187,13 +203,13 @@ export default function App() {
                           key={asset.id}
                           onClick={() => handleAddItemFromLibrary(asset.id)}
                           className={cn("flex flex-col items-center p-2 rounded-xl transition-all group",
-                            isActive ? "bg-blue-50 text-blue-600" : "hover:bg-gray-50"
+                            isActive ? "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "hover:bg-gray-50 dark:hover:bg-zinc-800"
                           )}
                         >
-                          <div className={cn("w-12 h-12 flex items-center justify-center rounded-lg border mb-2", isActive ? "border-blue-200 bg-white" : "border-gray-200 bg-white group-hover:border-gray-300")}>
-                             <IconComponent className={cn("w-5 h-5", isActive ? "text-blue-500" : "text-gray-600")} strokeWidth={1.5} />
+                          <div className={cn("w-12 h-12 flex items-center justify-center rounded-lg border mb-2", isActive ? "border-blue-200 dark:border-blue-700 bg-white dark:bg-zinc-950" : "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 group-hover:border-gray-300 dark:group-hover:border-zinc-600")}>
+                             <IconComponent className={cn("w-5 h-5", isActive ? "text-blue-500 dark:text-blue-400" : "text-gray-600 dark:text-zinc-400")} strokeWidth={1.5} />
                           </div>
-                          <span className={cn("text-[10px] text-center leading-tight font-medium", isActive ? "text-blue-600" : "text-gray-500")}>{asset.name}</span>
+                          <span className={cn("text-[10px] text-center leading-tight font-medium", isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-zinc-400")}>{asset.name}</span>
                         </button>
                       )
                     })}
@@ -262,19 +278,19 @@ export default function App() {
   );
 }
 
-function TopBar({ viewMode, setViewMode, onExport, onGenerate }: { viewMode: ViewMode, setViewMode: (m: ViewMode) => void, onExport: () => void, onGenerate: () => void }) {
+function TopBar({ viewMode, setViewMode, onExport, onGenerate, isDark, onToggleTheme }: { viewMode: ViewMode, setViewMode: (m: ViewMode) => void, onExport: () => void, onGenerate: () => void, isDark?: boolean, onToggleTheme?: () => void }) {
   return (
-    <div className="w-[100vw] h-14 border-b border-gray-200 bg-white flex items-center justify-between px-4 z-20 shadow-sm relative">
+    <div className="w-[100vw] h-14 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between px-4 z-20 shadow-sm relative">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 cursor-pointer">
           <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg shadow-inner">
              <Layers className="w-5 h-5 text-white" />
           </div>
-          <span className="font-bold text-gray-900 tracking-tight text-lg">HOMESTYLER</span>
+          <span className="font-bold text-gray-900 dark:text-white tracking-tight text-lg">HOMESTYLER</span>
         </div>
-        <div className="w-px h-6 bg-gray-200 mx-2"></div>
+        <div className="w-px h-6 bg-gray-200 dark:bg-zinc-800 mx-2"></div>
         <button 
-          className="text-gray-600 font-medium text-sm hover:text-gray-900 flex items-center gap-1"
+          className="text-gray-600 dark:text-zinc-400 font-medium text-sm hover:text-gray-900 dark:hover:text-zinc-100 flex items-center gap-1"
           onClick={() => {
              const newName = prompt('Enter project name:', 'Project Name');
              if (newName) alert(`Project name changed to: ${newName}`);
@@ -283,7 +299,7 @@ function TopBar({ viewMode, setViewMode, onExport, onGenerate }: { viewMode: Vie
           Project Name <Icons.ChevronDown className="w-4 h-4"/>
         </button>
         <button 
-          className="text-gray-600 font-medium text-sm hover:text-gray-900 flex items-center gap-1 ml-2"
+          className="text-gray-600 dark:text-zinc-400 font-medium text-sm hover:text-gray-900 dark:hover:text-zinc-100 flex items-center gap-1 ml-2"
           onClick={() => alert("Share link copied to clipboard!")}
         >
           <Icons.Share2 className="w-4 h-4"/> Share <Icons.ChevronDown className="w-4 h-4"/>
@@ -294,18 +310,29 @@ function TopBar({ viewMode, setViewMode, onExport, onGenerate }: { viewMode: Vie
         <button className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-md shadow-sm font-medium text-sm hover:shadow transition-shadow" onClick={onGenerate}>
           <Icons.Sparkles className="w-4 h-4" /> AI Generate
         </button>
-        <button className="text-gray-600 hover:text-gray-900" title="Templates" onClick={() => alert("Templates library coming soon!")}><Icons.LayoutTemplate className="w-5 h-5"/></button>
-        <button className="text-gray-600 hover:text-gray-900" title="Settings" onClick={() => alert("Project settings coming soon!")}><Icons.Settings className="w-5 h-5"/></button>
+        
+        {onToggleTheme && (
+          <button 
+            className="text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            onClick={onToggleTheme}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDark ? <Icons.Sun className="w-5 h-5" /> : <Icons.Moon className="w-5 h-5" />}
+          </button>
+        )}
+        
+        <button className="text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100" title="Templates" onClick={() => alert("Templates library coming soon!")}><Icons.LayoutTemplate className="w-5 h-5"/></button>
+        <button className="text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100" title="Settings" onClick={() => alert("Project settings coming soon!")}><Icons.Settings className="w-5 h-5"/></button>
         <div className="relative">
-          <button className="text-gray-600 hover:text-gray-900" title="Messages" onClick={() => alert("You have 3 unread messages.")}><Icons.Mail className="w-5 h-5"/></button>
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white pointer-events-none">3</span>
+          <button className="text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100" title="Messages" onClick={() => alert("You have 3 unread messages.")}><Icons.Mail className="w-5 h-5"/></button>
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white dark:border-zinc-900 pointer-events-none">3</span>
         </div>
         <div 
-          className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors"
+          className="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 shadow-sm overflow-hidden flex items-center justify-center cursor-pointer hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
           title="Profile" 
           onClick={() => alert("User profile coming soon!")}
         >
-           <Icons.User className="w-4 h-4 text-gray-500" />
+           <Icons.User className="w-4 h-4 text-gray-500 dark:text-zinc-400" />
         </div>
       </div>
     </div>
@@ -1176,7 +1203,14 @@ function DraggableItem({ item, transform, isSelected, canSelect, onSelect, onUpd
 
 function PropertiesPanel({ item, onUpdate, onDelete }: any) {
   const handleChange = (field: keyof DesignItem, value: string | number) => {
-    onUpdate({ [field]: value });
+    let updates: Partial<DesignItem> = { [field]: value };
+    
+    if (field === 'material' && item.color === '#ffffff') {
+      if (value === 'wood') updates.color = '#8B5A2B';
+      if (value === 'concrete') updates.color = '#9ca3af';
+    }
+    
+    onUpdate(updates);
   };
 
   return (
@@ -1221,6 +1255,23 @@ function PropertiesPanel({ item, onUpdate, onDelete }: any) {
           <span>Material & Finish</span>
           <Icons.ChevronDown className="w-3 h-3 text-gray-400" />
         </h5>
+        
+        <div className="flex flex-col gap-2 focus-within:ring-1 focus-within:ring-blue-500 rounded-md p-1 transition-all">
+          <label className="text-[10px] text-gray-500 font-semibold mb-1">Surface Material</label>
+          <select 
+            value={item.material || 'default'}
+            onChange={(e) => handleChange('material', e.target.value)}
+            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-800 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+          >
+            <option value="default">Default Finish</option>
+            <option value="paint">Paint (Matte)</option>
+            <option value="wood">Wood (Polished)</option>
+            <option value="tile">Ceramic Tile</option>
+            <option value="concrete">Concrete / Stone</option>
+            <option value="fabric">Fabric / Carpet</option>
+          </select>
+        </div>
+
         <div className="flex flex-col gap-2">
           <label className="text-[10px] text-gray-500 font-semibold mb-1">Base Color Profile</label>
           <div className="flex gap-2">
@@ -1240,6 +1291,38 @@ function PropertiesPanel({ item, onUpdate, onDelete }: any) {
               className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 text-xs font-mono text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:bg-white outline-none transition-all shadow-sm" 
             />
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-4">
+        <h5 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest flex flex-col items-start gap-1">
+          <span>Custom 3D Model</span>
+          <span className="text-[9px] font-normal normal-case text-gray-400">Supported formats: .glb, .obj</span>
+        </h5>
+        
+        <div className="flex flex-col gap-2">
+           <input 
+             type="file"
+             accept=".glb, .gltf, .obj"
+             onChange={(e) => {
+               const file = e.target.files?.[0];
+               if (!file) return;
+               
+               const type = file.name.endsWith('.obj') ? 'obj' : 'glb';
+               const objectUrl = URL.createObjectURL(file);
+               
+               onUpdate({ modelUrl: objectUrl, modelType: type });
+             }}
+             className="text-xs w-full text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+           />
+           {item.modelUrl && (
+             <button 
+               onClick={() => onUpdate({ modelUrl: undefined, modelType: undefined })}
+               className="text-[10px] text-red-500 hover:text-red-600 mt-1 self-start font-medium"
+             >
+               Remove Custom Model
+             </button>
+           )}
         </div>
       </div>
 

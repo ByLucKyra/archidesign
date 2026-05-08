@@ -21,6 +21,10 @@ export interface DesignItem {
   height: number;
   rotation: number;
   color: string;
+  material?: string;
   points?: {x: number, y: number}[];
   jointType?: 'rounded' | 'squared';
+  modelUrl?: string;
+  modelType?: 'obj' | 'glb' | 'gltf';
+  modelMeshMaterials?: Record<string, { material?: string, color?: string }>;
 }
