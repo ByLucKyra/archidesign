@@ -343,7 +343,7 @@ export default function KonvaCanvas2D({ items, selectedItemId, onSelectItem, onU
   };
 
   return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden bg-[#f0f2f5]"
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden bg-transparent"
          onContextMenu={e => { e.preventDefault(); if(draftState) setDraftState(null); else setActiveTool('select'); }}>
       
       <Stage 

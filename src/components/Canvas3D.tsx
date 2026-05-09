@@ -49,6 +49,23 @@ export const getMaterialProps = (material: string | undefined, color: string, is
         materialProps.sheenColor = color;
         materialProps.color = color;
         break;
+      case 'glossy':
+        materialProps.roughness = 0.05;
+        materialProps.metalness = 0.1;
+        materialProps.clearcoat = 1.0;
+        materialProps.clearcoatRoughness = 0.05;
+        break;
+      case 'matte':
+        materialProps.roughness = 0.9;
+        materialProps.metalness = 0.0;
+        materialProps.clearcoat = 0.0;
+        break;
+      case 'metallic':
+        materialProps.roughness = 0.2;
+        materialProps.metalness = 1.0;
+        materialProps.clearcoat = 0.3;
+        materialProps.clearcoatRoughness = 0.1;
+        break;
       default:
         materialProps.roughness = 0.5;
         materialProps.metalness = 0.1;
@@ -200,6 +217,9 @@ function CustomModel({ url, type, width, height, verticalHeight, isSelected, ite
                    <option value="tile">Ceramic Tile</option>
                    <option value="concrete">Concrete / Stone</option>
                    <option value="fabric">Fabric / Carpet</option>
+                   <option value="glossy">Glossy Plastic</option>
+                   <option value="matte">Matte Plastic</option>
+                   <option value="metallic">Metallic</option>
                  </select>
                </div>
 
@@ -293,6 +313,13 @@ function Item3D({ item, isSelected, onSelect, onUpdate }: { item: DesignItem, is
             onUpdate={onUpdate}
           />
         </Suspense>
+        {isSelected && item.category === 'Furniture' && (
+           <Html position={[0, verticalHeight / 2 + 15, 0]} center zIndexRange={[100, 0]}>
+             <div className="bg-zinc-900/90 text-white px-2.5 py-1 rounded-md text-[10px] font-medium tracking-wide whitespace-nowrap pointer-events-none text-center shadow-xl border border-white/10 backdrop-blur-md">
+                W: {item.width}cm &times; D: {item.height}cm &times; H: {verticalHeight}cm
+             </div>
+           </Html>
+        )}
       </group>
     );
   }
@@ -344,6 +371,13 @@ function Item3D({ item, isSelected, onSelect, onUpdate }: { item: DesignItem, is
     >
       <boxGeometry args={[item.width, verticalHeight, item.height]} />
       {renderMaterial()}
+      {isSelected && item.category === 'Furniture' && (
+         <Html position={[0, verticalHeight / 2 + 15, 0]} center zIndexRange={[100, 0]}>
+           <div className="bg-zinc-900/90 text-white px-2.5 py-1 rounded-md text-[10px] font-medium tracking-wide whitespace-nowrap pointer-events-none text-center shadow-xl border border-white/10 backdrop-blur-md">
+              W: {item.width}cm &times; D: {item.height}cm &times; H: {verticalHeight}cm
+           </div>
+         </Html>
+      )}
     </mesh>
   );
 }
